@@ -104,31 +104,18 @@ Bindings in `makefile-mode':
    makefile-executor-special-target makefile-executor-special-target)
   "Target used to list all other Makefile targets.")
 
+;; rough approximation for parsing the Makefile since the upstream version is broken
 (defun makefile-executor-get-targets (filename)
   "Return a list of all the targets of a Makefile.
 
-To list them in a computed manner, a new special target is added,
-the buffer is written to a temporary Makefile which is executed
-with the special target.
-
 Optional argument FILENAME defaults to current buffer."
-  (let* ((file (make-temp-file "makefile"))
-         (makefile-contents
-          (concat
-           (with-temp-buffer
-             (insert-file-contents filename)
-             (buffer-string))
-           "\n\n"
-           makefile-executor-list-target-code)))
-
-    (f-write-text makefile-contents 'utf-8 file)
-
-    (let ((out (shell-command-to-string
-                (format "make -f %s %s"
-                        (shell-quote-argument file)
-                        makefile-executor-special-target))))
-      (delete-file file)
-      (s-split "\n" out t))))
+  (-distinct
+   (-map (lambda (line)
+           (car (split-string line ":")))
+         (-filter (lambda (line)
+                    (s-matches? "^[a-zA-Z0-9-]+:.*" line))
+                  (s-split "\n" (f-read filename) t))))
+    )
 
 (defun makefile-executor-select-target (&optional filename)
   "Prompt the user for a Makefile target.
